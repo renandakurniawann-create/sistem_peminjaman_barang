@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIPEM-LAB | Sistem Informasi Peminjaman Alat</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Custom styling inside tailwind config for AdminLTE feel -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            blue: '#3c8dbc',
+                            darkBlue: '#222d32',
+                            lightBg: '#f4f6f9',
+                            success: '#00a65a',
+                            warning: '#f39c12',
+                            danger: '#dd4b39'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f6f9;
+        }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-x-hidden">
+
+    <script>
+        // Initial Database State
+        const defaultUsers = [
+            { id: 1, nama: "Zainal Abidin (Admin)", email: "admin@mail.com", password: "password", role: "admin", nim: null },
+            { id: 2, nama: "Siti Rahmawati (Laboran)", email: "laboran@mail.com", password: "password", role: "laboran", nim: null },
+            { id: 3, nama: "Budi Santoso", email: "mahasiswa@mail.com", password: "password", role: "mahasiswa", nim: "220101034" },
+            { id: 4, nama: "Rian Hidayat", email: "rian@mail.com", password: "password", role: "mahasiswa", nim: "220101012" }
+        ];
+
+        const defaultCategories = [
+            { id: 1, nama_kategori: "Alat Elektronika" },
+            { id: 2, nama_kategori: "Alat Optik / Fisika" },
+            { id: 3, nama_kategori: "Kimia & Biologi" }
+        ];
+
+        const defaultEquipment = [
+            { id: 1, kode_alat: "ALT-001", nama_alat: "Osiloskop Digital 100MHz", kategori_id: 1, stok: 4, kondisi: "Baik", lokasi: "Lemari A - Lab Elektro", foto: "https://placehold.co/150x150/3c8dbc/ffffff?text=Osiloskop", qr_code: "ALT-001" },
+            { id: 2, kode_alat: "ALT-002", nama_alat: "Multimeter Digital Fluke", kategori_id: 1, stok: 12, kondisi: "Baik", lokasi: "Lemari B - Lab Elektro", foto: "https://placehold.co/150x150/00a65a/ffffff?text=Multimeter", qr_code: "ALT-002" },
+            { id: 3, kode_alat: "ALT-003", nama_alat: "Mikroskop Binokuler Olympus", kategori_id: 3, stok: 6, kondisi: "Baik", lokasi: "Lemari C - Lab Biologi", foto: "https://placehold.co/150x150/f39c12/ffffff?text=Mikroskop", qr_code: "ALT-003" },
+            { id: 4, kode_alat: "ALT-004", nama_alat: "Catu Daya Regulator DC", kategori_id: 1, stok: 8, kondisi: "Rusak Ringan", lokasi: "Lemari A - Lab Elektro", foto: "https://placehold.co/150x150/dd4b39/ffffff?text=Catu+Daya", qr_code: "ALT-004" },
+            { id: 5, kode_alat: "ALT-005", nama_alat: "Alat Sentrifugasi Lab", kategori_id: 3, stok: 2, kondisi: "Baik", lokasi: "Meja 3 - Lab Kimia", foto: "https://placehold.co/150x150/111111/ffffff?text=Centrifuge", qr_code: "ALT-005" }
+        ];
+
+        const defaultRentals = [
+            { 
+                id: 1001, 
+                user_id: 3, 
+                tanggal_pinjam: "2026-06-01", 
+                tanggal_kembali: "2026-06-05", 
+                status: "Selesai",
+                detail: [{ alat_id: 2, jumlah: 1 }]
+            },
+            { 
+                id: 1002, 
+                user_id: 3, 
+                tanggal_pinjam: "2026-06-06", 
+                tanggal_kembali: "2026-06-12", 
+                status: "Dipinjam",
+                detail: [{ alat_id: 1, jumlah: 1 }, { alat_id: 3, jumlah: 1 }]
+            },
+            { 
+                id: 1003, 
+                user_id: 4, 
+                tanggal_pinjam: "2026-06-07", 
+                tanggal_kembali: "2026-06-14", 
+                status: "Menunggu Persetujuan",
+                detail: [{ alat_id: 2, jumlah: 2 }]
+            }
+        ];
+
+        const defaultReturns = [
+            { id: 2001, peminjaman_id: 1001, tanggal_pengembalian: "2026-06-05", kondisi_alat: "Normal", keterangan: "Kembali tepat waktu dan aman.", denda: 0 }
+        ];
+
+        // Logs
+        const defaultLogs = [
+            { time: "07 Juni 2026 08:30", message: "Budi Santoso mengajukan peminjaman ALT-001 & ALT-003" },
+            { time: "07 Juni 2026 09:15", message: "Siti Rahmawati memverifikasi pengembalian TRX-#1001" },
+            { time: "07 Juni 2026 10:00", message: "Admin mengubah status stok Osiloskop Digital" }
+        ];
+
+        // Initialize LocalStorage with default data if not present
+        if(!localStorage.getItem('users')) localStorage.setItem('users', JSON.stringify(defaultUsers));
+        if(!localStorage.getItem('categories')) localStorage.setItem('categories', JSON.stringify(defaultCategories));
+        if(!localStorage.getItem('equipment')) localStorage.setItem('equipment', JSON.stringify(defaultEquipment));
+        if(!localStorage.getItem('rentals')) localStorage.setItem('rentals', JSON.stringify(defaultRentals));
+        if(!localStorage.getItem('returns')) localStorage.setItem('returns', JSON.stringify(defaultReturns));
+        if(!localStorage.getItem('logs')) localStorage.setItem('logs', JSON.stringify(defaultLogs));
+
+        // State managers
+        let state = {
+            users: JSON.parse(localStorage.getItem('users')),
+            categories: JSON.parse(localStorage.getItem('categories')),
+            equipment: JSON.parse(localStorage.getItem('equipment')),
+            rentals: JSON.parse(localStorage.getItem('rentals')),
+            returns: JSON.parse(localStorage.getItem('returns')),
+            logs: JSON.parse(localStorage.getItem('logs')),
+            currentUser: JSON.parse(sessionStorage.getItem('currentUser')) || null,
+            currentView: 'dashboard' // Views: dashboard, alat, peminjaman, pengembalian, laporan, kategori, mahasiswa, logs
+        };
+
+        function saveStateToStorage() {
+            localStorage.setItem('users', JSON.stringify(state.users));
+            localStorage.setItem('categories', JSON.stringify(state.categories));
+            localStorage.setItem('equipment', JSON.stringify(state.equipment));
+            localStorage.setItem('rentals', JSON.stringify(state.rentals));
+            localStorage.setItem('returns', JSON.stringify(state.returns));
+            localStorage.setItem('logs', JSON.stringify(state.logs));
+        }
+
+        function addLog(message) {
+            const date = new Date();
+            const timeStr = `${date.getDate().toString().padStart(2, '0')} Jun 2026 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            state.logs.unshift({ time: timeStr, message: message });
+            saveStateToStorage();
+        }
+    </script>
+
+    <!-- App Container -->
+    <div id="app" class="flex flex-col min-h-screen">
+        
+        <!-- --- SECTION: LOGIN PAGE --- -->
+        <div id="view-login" class="flex-grow flex items-center justify-center bg-gray-100 p-4">
+            <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-t-4 border-brand-blue">
+                <div class="text-center mb-6">
+                    <div class="inline-flex p-3 bg-blue-100 text-brand-blue rounded-full mb-3 text-3xl">
+                        <i class="fa-solid fa-flask-vial"></i>
+                    </div>
+                    <h1 id="auth-title" class="text-2xl font-bold text-gray-800">SIPEM-LAB</h1>
+                    <p id="auth-desc" class="text-sm text-gray-500">Sistem Informasi Peminjaman Alat Praktikum</p>
+                </div>
+
+                <!-- Form Login -->
+                <form id="form-login" onsubmit="handleLogin(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Alamat Email</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-envelope"></i>
+                            </span>
+                            <input type="email" id="login-email" class="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="nama@email.com" required>
+                        </div>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Kata Sandi</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="login-password" class="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="••••••••" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-blue text-white font-bold py-2 rounded-md hover:bg-blue-600 transition duration-200">
+                        Masuk Aplikasi <i class="fa-solid fa-right-to-bracket ml-1"></i>
+                    </button>
+                    
+                    <div class="mt-4 text-center">
+                        <p class="text-sm text-gray-600">Belum memiliki akun? <button type="button" onclick="toggleAuthForm('register')" class="text-brand-blue font-bold hover:underline focus:outline-none">Daftar Sekarang</button></p>
+                    </div>
+                </form>
+
+                <!-- -->
+                <!-- Form Register (Mahasiswa Baru) -->
+                <form id="form-register" class="hidden space-y-4" onsubmit="handleRegister(event)">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Nama Lengkap</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-user"></i>
+                            </span>
+                            <input type="text" id="reg-nama" class="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Nama Lengkap Anda" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">NIM (Nomor Induk Mahasiswa)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-id-card"></i>
+                            </span>
+                            <input type="text" id="reg-nim" class="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Contoh: 220101001" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Alamat Email</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-envelope"></i>
+                            </span>
+                            <input type="email" id="reg-email" class="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="nim@student.ac.id" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Kata Sandi Baru</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fa-solid fa-lock"></i>
+                            </span>
+                            <input type="password" id="reg-password" class="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Sandi minimal 6 karakter" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-brand-success text-white font-bold py-2 rounded-md hover:bg-green-600 transition duration-200">
+                        Daftar Akun Mahasiswa <i class="fa-solid fa-user-plus ml-1"></i>
+                    </button>
+                    
+                    <div class="mt-4 text-center">
+                        <p class="text-sm text-gray-600">Sudah punya akun? <button type="button" onclick="toggleAuthForm('login')" class="text-brand-blue font-bold hover:underline focus:outline-none">Masuk disini</button></p>
+                    </div>
+                </form>
+
+                <div id="quick-login-container" class="mt-6 border-t pt-4 text-center">
+                    <p class="text-xs text-gray-400 mb-2">Gunakan Akun Simulator Cepat:</p>
+                    <div class="flex flex-wrap justify-center gap-1">
+                        <button onclick="fillQuickLogin('admin@mail.com')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded">Admin</button>
+                        <button onclick="fillQuickLogin('laboran@mail.com')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded">Laboran</button>
+                        <button onclick="fillQuickLogin('mahasiswa@mail.com')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded">Mahasiswa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- --- SECTION: CORE APP TEMPLATE (With Sidebar & Navbar) --- -->
+        <div id="view-dashboard-layout" class="hidden flex-grow flex flex-col md:flex-row">
+            
+            <!-- Sidebar Navigation -->
+            <aside class="w-full md:w-64 bg-brand-darkBlue text-gray-300 flex flex-col shadow-lg">
+                <!-- Branding Header -->
+                <div class="p-4 bg-brand-blue flex items-center justify-between text-white font-bold">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-vial-circle-check text-xl"></i>
+                        <span>SIPEM LAB</span>
+                    </div>
+                    <span class="text-xs bg-black bg-opacity-30 px-2 py-0.5 rounded uppercase" id="badge-user-role">ADMIN</span>
+                </div>
+
+                <!-- User Profile Summary inside Sidebar -->
+                <div class="p-4 border-b border-gray-700 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white font-bold" id="avatar-user">
+                        A
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white leading-tight" id="profile-name">Admin Name</h4>
+                        <span class="text-xs text-gray-400" id="profile-nim-email">admin@mail.com</span>
+                    </div>
+                </div>
+
+                <!-- Main Menu Options -->
+                <nav class="flex-grow p-4 space-y-1">
+                    <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Menu Utama</span>
+                    
+                    <a href="#" onclick="switchView('dashboard')" id="nav-dashboard" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                        <i class="fa-solid fa-chart-line text-brand-blue w-5"></i>
+                        <span>Dashboard</span>
+                    </a>
+
+                    <!-- Admin & Laboran Tools -->
+                    <div id="sidebar-staff-only" class="space-y-1">
+                        <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider pt-4 mb-2">Master Data</span>
+                        <a href="#" onclick="switchView('alat')" id="nav-alat" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                            <i class="fa-solid fa-toolbox text-brand-blue w-5"></i>
+                            <span>Kelola Alat</span>
+                        </a>
+                        <a href="#" onclick="switchView('kategori')" id="nav-kategori" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                            <i class="fa-solid fa-list-check text-brand-blue w-5"></i>
+                            <span>Kategori Alat</span>
+                        </a>
+                        <a href="#" onclick="switchView('mahasiswa')" id="nav-mahasiswa" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                            <i class="fa-solid fa-users text-brand-blue w-5"></i>
+                            <span>Data Mahasiswa</span>
+                        </a>
+                    </div>
+
+                    <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider pt-4 mb-2">Transaksi</span>
+                    
+                    <a href="#" onclick="switchView('peminjaman')" id="nav-peminjaman" class="flex items-center justify-between px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-hand-holding-hand text-brand-blue w-5"></i>
+                            <span>Peminjaman</span>
+                        </div>
+                        <span id="badge-pending-count" class="bg-brand-warning text-black font-bold text-xs px-2 py-0.5 rounded-full hidden">3</span>
+                    </a>
+
+                    <div id="sidebar-returns-only">
+                        <a href="#" onclick="switchView('pengembalian')" id="nav-pengembalian" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                            <i class="fa-solid fa-rotate-left text-brand-blue w-5"></i>
+                            <span>Pengembalian</span>
+                        </a>
+                    </div>
+
+                    <div id="sidebar-reports-only" class="space-y-1">
+                        <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider pt-4 mb-2">Analisis & Log</span>
+                        <a href="#" onclick="switchView('laporan')" id="nav-laporan" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                            <i class="fa-solid fa-file-invoice text-brand-blue w-5"></i>
+                            <span>Laporan Transaksi</span>
+                        </a>
+                        <a href="#" onclick="switchView('logs')" id="nav-logs" class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-700 text-white transition">
+                            <i class="fa-solid fa-clock-rotate-left text-brand-blue w-5"></i>
+                            <span>Log Aktivitas</span>
+                        </a>
+                    </div>
+                </nav>
+
+                <!-- Quick Action Buttons / Logout -->
+                <div class="p-4 border-t border-gray-700 space-y-2">
+                    <button onclick="openQRScanSim()" class="w-full bg-brand-success hover:bg-green-600 text-white font-semibold text-sm py-2 px-3 rounded flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <span>Simulasi Scan QR</span>
+                    </button>
+                    <button onclick="handleLogout()" class="w-full bg-brand-danger hover:bg-red-600 text-white font-semibold text-sm py-2 px-3 rounded flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-power-off"></i>
+                        <span>Keluar Sesi</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Content Pane -->
+            <main class="flex-grow flex flex-col overflow-y-auto">
+                <!-- Top Navbar Header -->
+                <header class="bg-white shadow-sm border-b px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <h2 class="text-xl font-bold text-gray-800" id="header-view-title">Dashboard Utama</h2>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-sm text-right">
+                            <p class="font-semibold text-gray-700" id="navbar-user-name">Budi Santoso</p>
+                            <p class="text-xs text-gray-400" id="navbar-user-role-label">Mahasiswa</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-full border bg-gray-100 flex items-center justify-center font-bold text-brand-blue text-lg" id="navbar-avatar">
+                            B
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Dynamic View Wrapper Area -->
+                <div class="p-6 flex-grow space-y-6">
+
+                    <!-- --- VIEW: DASHBOARD (ADMIN & LABORAN) --- -->
+                    <div id="view-dashboard-admin" class="hidden space-y-6">
+                        <!-- Stats Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="bg-brand-blue text-white rounded-lg p-5 shadow-md flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-3xl font-bold" id="stat-total-alat">0</h3>
+                                    <p class="text-sm font-semibold opacity-90 mt-1">Total Alat Praktikum</p>
+                                </div>
+                                <div class="text-4xl opacity-40"><i class="fa-solid fa-toolbox"></i></div>
+                            </div>
+                            <div class="bg-brand-success text-white rounded-lg p-5 shadow-md flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-3xl font-bold" id="stat-total-mahasiswa">0</h3>
+                                    <p class="text-sm font-semibold opacity-90 mt-1">Total Mahasiswa</p>
+                                </div>
+                                <div class="text-4xl opacity-40"><i class="fa-solid fa-users"></i></div>
+                            </div>
+                            <div class="bg-brand-warning text-white rounded-lg p-5 shadow-md flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-3xl font-bold" id="stat-peminjaman-aktif">0</h3>
+                                    <p class="text-sm font-semibold opacity-90 mt-1">Peminjaman Aktif</p>
+                                </div>
+                                <div class="text-4xl opacity-40"><i class="fa-solid fa-hand-holding-hand"></i></div>
+                            </div>
+                            <div class="bg-brand-danger text-white rounded-lg p-5 shadow-md flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-3xl font-bold" id="stat-total-kembali">0</h3>
+                                    <p class="text-sm font-semibold opacity-90 mt-1">Total Pengembalian</p>
+                                </div>
+                                <div class="text-4xl opacity-40"><i class="fa-solid fa-rotate-left"></i></div>
+                            </div>
+                        </div>
+
+                        <!-- Charts & Activity Area -->
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Borrowing Trends Chart -->
+                            <div class="bg-white rounded-lg shadow-sm border p-5 lg:col-span-2">
+                                <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fa-solid fa-chart-area mr-2 text-brand-blue"></i>Tren Peminjaman Bulanan</h3>
+                                <div class="h-64">
+                                    <canvas id="chart-trends"></canvas>
+                                </div>
+                            </div>
+                            <!-- Popular Tools Leaderboard -->
+                            <div class="bg-white rounded-lg shadow-sm border p-5">
+                                <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fa-solid fa-fire mr-2 text-brand-warning"></i>Alat Terpopuler</h3>
+                                <div class="h-64 flex flex-col justify-around" id="container-popular-tools">
+                                    <!-- Dynamic content inserted by javascript -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: DASHBOARD (MAHASISWA) --- -->
+                    <div id="view-dashboard-mahasiswa" class="hidden space-y-6">
+                        <!-- Quick Info Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-white rounded-lg shadow-sm border p-6 flex items-center gap-4">
+                                <div class="p-4 bg-blue-100 text-brand-blue rounded-full text-2xl">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-bold" id="stat-mhs-pinjam">0</h3>
+                                    <p class="text-sm font-semibold text-gray-500">Peminjaman Aktif</p>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border p-6 flex items-center gap-4">
+                                <div class="p-4 bg-green-100 text-brand-success rounded-full text-2xl">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-bold" id="stat-mhs-selesai">0</h3>
+                                    <p class="text-sm font-semibold text-gray-500">Peminjaman Selesai</p>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border p-6 flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-bold text-gray-800">Ajukan Pinjam</h4>
+                                    <p class="text-xs text-gray-500">Pilih & pesan alat dengan mudah</p>
+                                </div>
+                                <button onclick="openBorrowModal()" class="bg-brand-blue hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm transition">
+                                    Mulai Peminjaman <i class="fa-solid fa-plus-circle ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Live Catalog / Search tools -->
+                        <div class="bg-white rounded-lg shadow-sm border p-6 space-y-4">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <h3 class="text-lg font-bold text-gray-800">Katalog Alat Tersedia</h3>
+                                <div class="flex gap-2">
+                                    <input type="text" id="catalog-search" oninput="renderCatalog()" class="border rounded px-4 py-1.5 text-sm w-full md:w-64 focus:outline-none focus:ring-1 focus:ring-brand-blue" placeholder="Cari alat praktikum...">
+                                    <select id="catalog-filter-kategori" onchange="renderCatalog()" class="border rounded px-3 py-1.5 text-sm focus:outline-none">
+                                        <option value="">Semua Kategori</option>
+                                        <!-- inserted dynamically -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="catalog-grid">
+                                <!-- Dynamic catalog items -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: KELOLA ALAT (CRUD) --- -->
+                    <div id="view-alat" class="hidden bg-white rounded-lg shadow-sm border p-6 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-gray-800">Manajemen Alat Praktikum</h3>
+                            <button onclick="openAlatForm()" class="bg-brand-blue hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Tambah Alat
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-700 text-sm font-semibold uppercase border-b">
+                                        <th class="py-3 px-4">Foto</th>
+                                        <th class="py-3 px-4">Kode / QR</th>
+                                        <th class="py-3 px-4">Nama Alat</th>
+                                        <th class="py-3 px-4">Kategori</th>
+                                        <th class="py-3 px-4">Stok</th>
+                                        <th class="py-3 px-4">Kondisi</th>
+                                        <th class="py-3 px-4">Lokasi</th>
+                                        <th class="py-3 px-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-alat-body" class="text-sm text-gray-600 divide-y">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: KATEGORI ALAT (CRUD) --- -->
+                    <div id="view-kategori" class="hidden bg-white rounded-lg shadow-sm border p-6 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-gray-800">Manajemen Kategori Alat</h3>
+                            <button onclick="openKategoriForm()" class="bg-brand-blue hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Tambah Kategori
+                            </button>
+                        </div>
+                        <div class="max-w-xl overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-700 text-sm font-semibold uppercase border-b">
+                                        <th class="py-3 px-4">No</th>
+                                        <th class="py-3 px-4">Nama Kategori</th>
+                                        <th class="py-3 px-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-kategori-body" class="text-sm text-gray-600 divide-y">
+                                    <!-- Dynamic categories -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: MAHASISWA (CRUD) --- -->
+                    <div id="view-mahasiswa" class="hidden bg-white rounded-lg shadow-sm border p-6 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-gray-800">Manajemen Mahasiswa</h3>
+                            <button onclick="openMahasiswaForm()" class="bg-brand-blue hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Tambah Mahasiswa
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-700 text-sm font-semibold uppercase border-b">
+                                        <th class="py-3 px-4">Nama Lengkap</th>
+                                        <th class="py-3 px-4">NIM</th>
+                                        <th class="py-3 px-4">Email</th>
+                                        <th class="py-3 px-4">Kata Sandi</th>
+                                        <th class="py-3 px-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-mahasiswa-body" class="text-sm text-gray-600 divide-y">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: PEMINJAMAN --- -->
+                    <div id="view-peminjaman" class="hidden bg-white rounded-lg shadow-sm border p-6 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <h3 class="text-lg font-bold text-gray-800">Transaksi Peminjaman Alat</h3>
+                            <div class="flex gap-2">
+                                <select id="filter-peminjaman" onchange="renderPeminjamanTable()" class="border rounded px-3 py-1.5 text-sm focus:outline-none">
+                                    <option value="">Semua Status</option>
+                                    <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
+                                    <option value="Dipinjam">Sedang Dipinjam</option>
+                                    <option value="Selesai">Selesai</option>
+                                    <option value="Ditolak">Ditolak</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-700 text-sm font-semibold uppercase border-b">
+                                        <th class="py-3 px-4">ID TRX</th>
+                                        <th class="py-3 px-4">Nama Mahasiswa</th>
+                                        <th class="py-3 px-4">Alat Praktikum</th>
+                                        <th class="py-3 px-4">Rencana Tanggal</th>
+                                        <th class="py-3 px-4">Status</th>
+                                        <th class="py-3 px-4 text-center">Aksi / Verifikasi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-peminjaman-body" class="text-sm text-gray-600 divide-y">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: PENGEMBALIAN --- -->
+                    <div id="view-pengembalian" class="hidden bg-white rounded-lg shadow-sm border p-6 space-y-4">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Verification Input -->
+                            <div class="bg-gray-50 border p-5 rounded-lg space-y-4 h-fit">
+                                <h4 class="font-bold text-gray-800 border-b pb-2"><i class="fa-solid fa-square-check text-brand-success mr-2"></i>Verifikasi Pengembalian</h4>
+                                <form id="form-pengembalian" onsubmit="handlePengembalian(event)" class="space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-600 mb-1">Pilih Transaksi Aktif</label>
+                                        <select id="return-trx-id" class="w-full border rounded p-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-blue" required>
+                                            <option value="">-- Pilih Transaksi --</option>
+                                            <!-- Filled dynamically -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-600 mb-1">Kondisi Alat Saat Kembali</label>
+                                        <select id="return-condition" class="w-full border rounded p-2 text-sm focus:outline-none" required>
+                                            <option value="Normal">Normal / Baik</option>
+                                            <option value="Rusak">Rusak</option>
+                                            <option value="Hilang">Hilang</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Pengembalian</label>
+                                        <input type="date" id="return-date" class="w-full border rounded p-2 text-sm focus:outline-none" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-600 mb-1">Nominal Denda (Rp) *Jika Rusak/Terlambat</label>
+                                        <input type="number" id="return-denda" class="w-full border rounded p-2 text-sm focus:outline-none" value="0" min="0">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-gray-600 mb-1">Keterangan / Catatan Fisik</label>
+                                        <textarea id="return-note" class="w-full border rounded p-2 text-sm focus:outline-none" rows="2" placeholder="Detail kondisi fisik alat..."></textarea>
+                                    </div>
+                                    <button type="submit" class="w-full bg-brand-success hover:bg-green-600 text-white font-bold py-2 rounded text-sm transition">
+                                        Verifikasi Pengembalian <i class="fa-solid fa-save ml-1"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- List of Returned Items -->
+                            <div class="lg:col-span-2 space-y-4">
+                                <h4 class="font-bold text-gray-800">Riwayat Pengembalian Terdaftar</h4>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-gray-100 text-gray-700 text-sm font-semibold uppercase border-b">
+                                                <th class="py-3 px-4">No</th>
+                                                <th class="py-3 px-4">TRX ID</th>
+                                                <th class="py-3 px-4">Tanggal Kembali</th>
+                                                <th class="py-3 px-4">Kondisi</th>
+                                                <th class="py-3 px-4">Denda</th>
+                                                <th class="py-3 px-4">Keterangan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="table-returns-body" class="text-sm text-gray-600 divide-y">
+                                            <!-- Dynamic returned rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: LAPORAN --- -->
+                    <div id="view-laporan" class="hidden bg-white rounded-lg shadow-sm border p-6 space-y-6">
+                        <!-- Date Filter Header -->
+                        <div class="bg-gray-50 p-4 border rounded-lg flex flex-col md:flex-row md:items-end justify-between gap-4">
+                            <div class="flex flex-wrap gap-4 flex-grow">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Mulai</label>
+                                    <input type="date" id="report-start-date" class="border rounded p-2 text-sm focus:outline-none" value="2026-06-01">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Selesai</label>
+                                    <input type="date" id="report-end-date" class="border rounded p-2 text-sm focus:outline-none" value="2026-06-30">
+                                </div>
+                                <div class="flex items-end">
+                                    <button onclick="renderReports()" class="bg-brand-blue hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm">
+                                        Terapkan Filter <i class="fa-solid fa-filter ml-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Export Trigger buttons -->
+                            <div class="flex gap-2">
+                                <button onclick="exportReport('pdf')" class="bg-brand-danger hover:bg-red-600 text-white font-bold py-2 px-4 rounded text-sm flex items-center gap-1">
+                                    <i class="fa-solid fa-file-pdf"></i> Ekspor PDF
+                                </button>
+                                <button onclick="exportReport('excel')" class="bg-brand-success hover:bg-green-600 text-white font-bold py-2 px-4 rounded text-sm flex items-center gap-1">
+                                    <i class="fa-solid fa-file-excel"></i> Ekspor Excel (CSV)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Integrated Report tables -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Borrowings Report -->
+                            <div class="space-y-2">
+                                <h4 class="font-bold text-gray-800 border-b pb-1"><i class="fa-solid fa-file-export text-brand-blue mr-2"></i>Aktivitas Peminjaman</h4>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr class="bg-gray-100 border-b">
+                                                <th class="py-2 px-3">TRX ID</th>
+                                                <th class="py-2 px-3">Peminjam</th>
+                                                <th class="py-2 px-3">Alat (Jumlah)</th>
+                                                <th class="py-2 px-3">Tanggal Pinjam</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="report-peminjaman-body">
+                                            <!-- Generated dynamic records -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Returns / Damage Report -->
+                            <div class="space-y-2">
+                                <h4 class="font-bold text-gray-800 border-b pb-1"><i class="fa-solid fa-file-circle-check text-brand-success mr-2"></i>Aktivitas Pengembalian & Kerusakan</h4>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr class="bg-gray-100 border-b">
+                                                <th class="py-2 px-3">TRX ID</th>
+                                                <th class="py-2 px-3">Tanggal Kembali</th>
+                                                <th class="py-2 px-3">Kondisi Alat</th>
+                                                <th class="py-2 px-3">Denda (Rp)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="report-pengembalian-body">
+                                            <!-- Generated dynamic records -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- --- VIEW: LOG AKTIVITAS --- -->
+                    <div id="view-logs" class="hidden bg-white rounded-lg shadow-sm border p-6 space-y-4">
+                        <h3 class="text-lg font-bold text-gray-800 border-b pb-2">Log Aktivitas Sistem</h3>
+                        <div class="space-y-3" id="log-list-container">
+                            <!-- Insert logs -->
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- --- CORE MODALS (Simulated Popup Forms) --- -->
+
+    <!-- Modal: Borrow Alat Form (Multi-Items Cart Style) -->
+    <div id="modal-borrow" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+            <div class="bg-brand-blue p-4 text-white flex items-center justify-between">
+                <h3 class="font-bold">Formulir Pengajuan Peminjaman</h3>
+                <button onclick="closeBorrowModal()" class="hover:opacity-80 text-xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form onsubmit="handleBorrowSubmit(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Peminjaman</label>
+                        <input type="date" id="borrow-start-date" class="w-full border rounded p-2 text-sm focus:outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Rencana Tanggal Pengembalian</label>
+                        <input type="date" id="borrow-end-date" class="w-full border rounded p-2 text-sm focus:outline-none" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Pilih Alat Praktikum & Jumlah</label>
+                    <div id="borrow-items-wrapper" class="space-y-2">
+                        <!-- First item row -->
+                        <div class="flex gap-2 borrow-item-row">
+                            <select class="flex-grow border rounded p-2 text-sm borrow-item-select focus:outline-none" onchange="updateMaxStock(this)" required>
+                                <option value="">-- Pilih Alat --</option>
+                                <!-- filled dynamically -->
+                            </select>
+                            <input type="number" class="w-20 border rounded p-2 text-sm borrow-item-qty focus:outline-none" placeholder="Qty" min="1" value="1" required>
+                            <button type="button" onclick="removeBorrowRow(this)" class="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addBorrowRow()" class="mt-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1 px-2.5 rounded border">
+                        <i class="fa-solid fa-plus"></i> Tambah Alat Lain
+                    </button>
+                </div>
+
+                <div class="border-t pt-4 flex justify-end gap-2">
+                    <button type="button" onclick="closeBorrowModal()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-semibold hover:bg-gray-300 transition">Batal</button>
+                    <button type="submit" class="bg-brand-blue text-white px-5 py-2 rounded text-sm font-semibold hover:bg-blue-600 transition">Kirim Pengajuan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Alat CRUD Form -->
+    <div id="modal-alat-form" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+            <div class="bg-brand-blue p-4 text-white flex items-center justify-between">
+                <h3 class="font-bold" id="alat-modal-title">Tambah Alat Baru</h3>
+                <button onclick="closeAlatForm()" class="hover:opacity-80 text-xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="form-alat" onsubmit="handleAlatSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="alat-edit-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Kode Alat</label>
+                        <input type="text" id="alat-code" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="ALT-00X" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Alat</label>
+                        <input type="text" id="alat-name" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="Nama lengkap alat" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Kategori Alat</label>
+                        <select id="alat-category" class="w-full border rounded p-2 text-sm focus:outline-none" required>
+                            <!-- categories -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Stok Awal</label>
+                        <input type="number" id="alat-stock" class="w-full border rounded p-2 text-sm focus:outline-none" min="0" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Kondisi Alat</label>
+                        <select id="alat-condition" class="w-full border rounded p-2 text-sm focus:outline-none" required>
+                            <option value="Baik">Baik (Siap Pakai)</option>
+                            <option value="Rusak Ringan">Rusak Ringan</option>
+                            <option value="Rusak Berat">Rusak Berat</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Lokasi Penyimpanan</label>
+                        <input type="text" id="alat-location" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="Rak A, Lemari 2" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Foto Alat (Link/URL)</label>
+                    <input type="url" id="alat-photo-url" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="https://image-url.com/photo.jpg">
+                </div>
+
+                <div class="border-t pt-4 flex justify-end gap-2">
+                    <button type="button" onclick="closeAlatForm()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-semibold hover:bg-gray-300 transition">Batal</button>
+                    <button type="submit" class="bg-brand-blue text-white px-5 py-2 rounded text-sm font-semibold hover:bg-blue-600 transition">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Kategori CRUD Form -->
+    <div id="modal-kategori-form" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="bg-brand-blue p-4 text-white flex items-center justify-between">
+                <h3 class="font-bold" id="kategori-modal-title">Tambah Kategori</h3>
+                <button onclick="closeKategoriForm()" class="hover:opacity-80 text-xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="form-kategori" onsubmit="handleKategoriSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="kategori-edit-id">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Kategori</label>
+                    <input type="text" id="kategori-name" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="Nama Kategori Alat" required>
+                </div>
+                <div class="border-t pt-4 flex justify-end gap-2">
+                    <button type="button" onclick="closeKategoriForm()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-semibold hover:bg-gray-300">Batal</button>
+                    <button type="submit" class="bg-brand-blue text-white px-5 py-2 rounded text-sm font-semibold hover:bg-blue-600">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Mahasiswa CRUD Form -->
+    <div id="modal-mahasiswa-form" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-brand-blue p-4 text-white flex items-center justify-between">
+                <h3 class="font-bold" id="mahasiswa-modal-title">Tambah Mahasiswa Baru</h3>
+                <button onclick="closeMahasiswaForm()" class="hover:opacity-80 text-xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="form-mahasiswa" onsubmit="handleMahasiswaSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="mahasiswa-edit-id">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Lengkap</label>
+                    <input type="text" id="mhs-name" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="Nama lengkap mahasiswa" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">NIM</label>
+                        <input type="text" id="mhs-nim" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="NIM" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Alamat Email</label>
+                        <input type="email" id="mhs-email" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="email@student.com" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kata Sandi</label>
+                    <input type="text" id="mhs-password" class="w-full border rounded p-2 text-sm focus:outline-none" placeholder="Password login" required>
+                </div>
+                <div class="border-t pt-4 flex justify-end gap-2">
+                    <button type="button" onclick="closeMahasiswaForm()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-semibold hover:bg-gray-300">Batal</button>
+                    <button type="submit" class="bg-brand-blue text-white px-5 py-2 rounded text-sm font-semibold hover:bg-blue-600">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: QR Scanner Simulator -->
+    <div id="modal-qr-simulator" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden text-center">
+            <div class="bg-brand-darkBlue p-4 text-white flex items-center justify-between">
+                <h3 class="font-bold"><i class="fa-solid fa-qrcode text-brand-blue mr-2"></i>Scanner QR Code Virtual</h3>
+                <button onclick="closeQRScanSim()" class="hover:opacity-80 text-xl text-gray-300"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="w-full h-48 bg-black rounded-lg border-2 border-brand-blue relative overflow-hidden flex flex-col items-center justify-center text-white gap-2">
+                    <!-- Scanner guide overlay -->
+                    <div class="absolute inset-4 border border-dashed border-red-500 opacity-75 animate-pulse"></div>
+                    <span class="absolute top-1/2 left-0 right-0 h-0.5 bg-red-600 animate-bounce"></span>
+                    <i class="fa-solid fa-camera text-3xl opacity-60"></i>
+                    <p class="text-xs opacity-80 z-10">Mengarahkan Kamera Utama...</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Pilih QR Code Alat yang Ditemukan</label>
+                    <select id="simulated-qr-input" class="w-full border rounded p-2 text-sm focus:outline-none">
+                        <!-- Filled with options -->
+                    </select>
+                </div>
+                <button onclick="submitQRScanSim()" class="w-full bg-brand-success hover:bg-green-600 text-white font-bold py-2 rounded text-sm transition">
+                    Verifikasi Tempel QR <i class="fa-solid fa-square-check ml-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- --- APPLICATION SCRIPTS --- -->
+    <script>
+        // Start Initialization
+        window.onload = function() {
+            checkCurrentSession();
+            updateAllLayouts();
+        }
+
+        // Auth Mode Switcher (Login <-> Register)
+        function toggleAuthForm(mode) {
+            const loginForm = document.getElementById('form-login');
+            const registerForm = document.getElementById('form-register');
+            const authTitle = document.getElementById('auth-title');
+            const authDesc = document.getElementById('auth-desc');
+            const quickLogin = document.getElementById('quick-login-container');
+
+            if (mode === 'register') {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                quickLogin.classList.add('hidden');
+                authTitle.innerText = "Daftar Akun";
+                authDesc.innerText = "Isi formulir untuk mendaftar sebagai Mahasiswa";
+            } else {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                quickLogin.classList.remove('hidden');
+                authTitle.innerText = "SIPEM-LAB";
+                authDesc.innerText = "Sistem Informasi Peminjaman Alat Praktikum";
+            }
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const nama = document.getElementById('reg-nama').value;
+            const nim = document.getElementById('reg-nim').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+
+            // Validasi format minimal sandi
+            if(password.length < 6) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sandi Terlalu Pendek',
+                    text: 'Silakan gunakan kata sandi minimal 6 karakter.'
+                });
+                return;
+            }
+
+            // Validasi duplikasi data email
+            const isEmailExists = state.users.some(u => u.email.toLowerCase() === email.toLowerCase());
+            if (isEmailExists) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Pendaftaran Gagal',
+                    text: 'Alamat email ini sudah terdaftar di sistem.'
+                });
+                return;
+            }
+
+            // Validasi duplikasi data NIM
+            const isNimExists = state.users.some(u => u.nim === nim);
+            if (isNimExists) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Pendaftaran Gagal',
+                    text: 'NIM tersebut sudah terdaftar di sistem.'
+                });
+                return;
+            }
+
+            // Buat objek mahasiswa baru
+            const newId = state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1;
+            const newUser = {
+                id: newId,
+                nama: nama,
+                email: email,
+                password: password,
+                role: 'mahasiswa',
+                nim: nim
+            };
+
+            // Simpan ke state & localStorage
+            state.users.push(newUser);
+            saveStateToStorage();
+            addLog(`Mahasiswa baru mendaftar mandiri: ${nama} (${nim})`);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Pendaftaran Sukses',
+                text: 'Akun Anda berhasil dibuat! Silakan masuk ke dalam sistem.',
+                confirmButtonColor: '#3c8dbc'
+            });
+
+            // Reset formulir & kembali ke form login
+            document.getElementById('form-register').reset();
+            toggleAuthForm('login');
+        }
+
+        // Authentication Management
+        function fillQuickLogin(email) {
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-password').value = 'password';
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+
+            const user = state.users.find(u => u.email === email && u.password === pass);
+            if(user) {
+                state.currentUser = user;
+                sessionStorage.setItem('currentUser', JSON.stringify(user));
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Login Berhasil',
+                    text: `Selamat datang kembali, ${user.nama}!`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
+                checkCurrentSession();
+                switchView('dashboard');
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Akses Ditolak',
+                    text: 'Kombinasi Email & Password tidak valid.'
+                });
+            }
+        }
+
+        function handleLogout() {
+            Swal.fire({
+                title: 'Keluar Sesi?',
+                text: "Anda harus login kembali untuk mengakses data laboratorium.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#dd4b39',
+                confirmButtonText: 'Keluar Sekarang'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    state.currentUser = null;
+                    sessionStorage.removeItem('currentUser');
+                    checkCurrentSession();
+                }
+            });
+        }
+
+        function checkCurrentSession() {
+            const loginView = document.getElementById('view-login');
+            const layoutView = document.getElementById('view-dashboard-layout');
+
+            if(state.currentUser) {
+                loginView.classList.add('hidden');
+                layoutView.classList.remove('hidden');
+
+                // Update Profile Details
+                document.getElementById('profile-name').innerText = state.currentUser.nama;
+                document.getElementById('profile-nim-email').innerText = state.currentUser.nim ? state.currentUser.nim : state.currentUser.email;
+                document.getElementById('badge-user-role').innerText = state.currentUser.role;
+                document.getElementById('avatar-user').innerText = state.currentUser.nama.charAt(0);
+                document.getElementById('navbar-user-name').innerText = state.currentUser.nama;
+                document.getElementById('navbar-user-role-label').innerText = state.currentUser.role.toUpperCase();
+                document.getElementById('navbar-avatar').innerText = state.currentUser.nama.charAt(0);
+
+                // Show/Hide Role-based Sidebar Menus
+                const staffOnly = document.getElementById('sidebar-staff-only');
+                const returnsOnly = document.getElementById('sidebar-returns-only');
+                const reportsOnly = document.getElementById('sidebar-reports-only');
+
+                if(state.currentUser.role === 'mahasiswa') {
+                    staffOnly.classList.add('hidden');
+                    returnsOnly.classList.add('hidden');
+                    reportsOnly.classList.add('hidden');
+                } else {
+                    staffOnly.classList.remove('hidden');
+                    returnsOnly.classList.remove('hidden');
+                    reportsOnly.classList.remove('hidden');
+                }
+            } else {
+                loginView.classList.remove('hidden');
+                layoutView.classList.add('hidden');
+            }
+        }
+
+        // View Management / Controller routing
+        function switchView(viewName) {
+            state.currentView = viewName;
+            
+            // Highlight sidebar item
+            const navItems = ['nav-dashboard', 'nav-alat', 'nav-kategori', 'nav-mahasiswa', 'nav-peminjaman', 'nav-pengembalian', 'nav-laporan', 'nav-logs'];
+            navItems.forEach(item => {
+                const el = document.getElementById(item);
+                if(el) {
+                    if(item === `nav-${viewName}`) {
+                        el.classList.add('bg-brand-blue', 'text-white');
+                        el.classList.remove('hover:bg-gray-700');
+                    } else {
+                        el.classList.remove('bg-brand-blue');
+                        el.classList.add('hover:bg-gray-700');
+                    }
+                }
+            });
+
+            // Update Header Title
+            const titles = {
+                dashboard: "Dashboard Utama",
+                alat: "Kelola Alat Praktikum",
+                kategori: "Kategori Alat Laboratorium",
+                mahasiswa: "Manajemen Mahasiswa",
+                peminjaman: "Transaksi Peminjaman Alat",
+                pengembalian: "Verifikasi Pengembalian",
+                laporan: "Laporan Aktivitas & Analisis",
+                logs: "Log Aktivitas Sistem"
+            };
+            document.getElementById('header-view-title').innerText = titles[viewName] || "SIPEM-LAB";
+
+            // Toggle Content Views
+            document.getElementById('view-dashboard-admin').classList.add('hidden');
+            document.getElementById('view-dashboard-mahasiswa').classList.add('hidden');
+            document.getElementById('view-alat').classList.add('hidden');
+            document.getElementById('view-kategori').classList.add('hidden');
+            document.getElementById('view-mahasiswa').classList.add('hidden');
+            document.getElementById('view-peminjaman').classList.add('hidden');
+            document.getElementById('view-pengembalian').classList.add('hidden');
+            document.getElementById('view-laporan').classList.add('hidden');
+            document.getElementById('view-logs').classList.add('hidden');
+
+            if(viewName === 'dashboard') {
+                if(state.currentUser.role === 'mahasiswa') {
+                    document.getElementById('view-dashboard-mahasiswa').classList.remove('hidden');
+                    renderCatalog();
+                    updateMahasiswaStats();
+                } else {
+                    document.getElementById('view-dashboard-admin').classList.remove('hidden');
+                    updateAdminStats();
+                    initDashboardCharts();
+                }
+            } else {
+                document.getElementById(`view-${viewName}`).classList.remove('hidden');
+                // View-specific initializers
+                if(viewName === 'alat') renderAlatTable();
+                if(viewName === 'kategori') renderKategoriTable();
+                if(viewName === 'mahasiswa') renderMahasiswaTable();
+                if(viewName === 'peminjaman') renderPeminjamanTable();
+                if(viewName === 'pengembalian') renderPengembalianSection();
+                if(viewName === 'laporan') renderReports();
+                if(viewName === 'logs') renderLogs();
+            }
+
+            updatePendingCountBadge();
+        }
+
+        // Dashboard Stats & Calculations
+        function updateAdminStats() {
+            document.getElementById('stat-total-alat').innerText = state.equipment.length;
+            document.getElementById('stat-total-mahasiswa').innerText = state.users.filter(u => u.role === 'mahasiswa').length;
+            document.getElementById('stat-peminjaman-aktif').innerText = state.rentals.filter(r => r.status === 'Dipinjam' || r.status === 'Disetujui').length;
+            document.getElementById('stat-total-kembali').innerText = state.returns.length;
+        }
+
+        function updateMahasiswaStats() {
+            const mhsRentals = state.rentals.filter(r => r.user_id === state.currentUser.id);
+            document.getElementById('stat-mhs-pinjam').innerText = mhsRentals.filter(r => r.status === 'Dipinjam' || r.status === 'Disetujui').length;
+            document.getElementById('stat-mhs-selesai').innerText = mhsRentals.filter(r => r.status === 'Selesai').length;
+        }
+
+        function updatePendingCountBadge() {
+            const pendingCount = state.rentals.filter(r => r.status === 'Menunggu Persetujuan').length;
+            const badge = document.getElementById('badge-pending-count');
+            if(badge) {
+                if(pendingCount > 0) {
+                    badge.innerText = pendingCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+        }
+
+        // Charts Initialization (Chart.js)
+        let trendsChart = null;
+        function initDashboardCharts() {
+            // Trend Peminjaman Bulanan (Mock Data)
+            const ctxTrends = document.getElementById('chart-trends');
+            if(trendsChart) trendsChart.destroy();
+            
+            trendsChart = new Chart(ctxTrends, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'],
+                    datasets: [{
+                        label: 'Frekuensi Peminjaman',
+                        data: [24, 35, 18, 48, 55, state.rentals.length + 20],
+                        borderColor: '#3c8dbc',
+                        backgroundColor: 'rgba(60, 141, 188, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Leaderboard / Most popular tools calculation
+            const popularContainer = document.getElementById('container-popular-tools');
+            popularContainer.innerHTML = '';
+            
+            // Map total borrows
+            const borrowStats = {};
+            state.rentals.forEach(r => {
+                r.detail.forEach(d => {
+                    borrowStats[d.alat_id] = (borrowStats[d.alat_id] || 0) + d.jumlah;
+                });
+            });
+
+            const sortedAlat = [...state.equipment].map(alat => {
+                return {
+                    nama: alat.nama_alat,
+                    total: borrowStats[alat.id] || 0
+                };
+            }).sort((a,b) => b.total - a.total).slice(0, 4);
+
+            sortedAlat.forEach((item, index) => {
+                const percentage = item.total > 0 ? Math.min((item.total / 10) * 100, 100) : 5;
+                const colors = ['bg-brand-blue', 'bg-brand-success', 'bg-brand-warning', 'bg-brand-danger'];
+                popularContainer.innerHTML += `
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-semibold text-gray-700">
+                            <span>${index+1}. ${item.nama}</span>
+                            <span>${item.total} kali</span>
+                        </div>
+                        <div class="w-full bg-gray-200 h-2 rounded-full">
+                            <div class="${colors[index % colors.length]} h-2 rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Render Catalog (Mahasiswa Dashboard)
+        function renderCatalog() {
+            const searchQuery = document.getElementById('catalog-search').value.toLowerCase();
+            const filterKat = document.getElementById('catalog-filter-kategori').value;
+            const grid = document.getElementById('catalog-grid');
+            grid.innerHTML = '';
+
+            // Update Categories Select filters dynamically
+            const filterSelect = document.getElementById('catalog-filter-kategori');
+            if(filterSelect.options.length <= 1) {
+                state.categories.forEach(c => {
+                    filterSelect.innerHTML += `<option value="${c.id}">${c.nama_kategori}</option>`;
+                });
+            }
+
+            const filtered = state.equipment.filter(alat => {
+                const matchesSearch = alat.nama_alat.toLowerCase().includes(searchQuery) || alat.kode_alat.toLowerCase().includes(searchQuery);
+                const matchesKat = filterKat === '' || alat.kategori_id == filterKat;
+                return matchesSearch && matchesKat;
+            });
+
+            if(filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400">Tidak ada alat yang cocok dengan filter pencarian.</div>`;
+                return;
+            }
+
+            filtered.forEach(alat => {
+                const categoryName = state.categories.find(c => c.id == alat.kategori_id)?.nama_kategori || 'Tanpa Kategori';
+                let conditionBadge = `<span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">${alat.kondisi}</span>`;
+                if(alat.kondisi === 'Rusak Ringan') conditionBadge = `<span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded">${alat.kondisi}</span>`;
+                if(alat.kondisi === 'Rusak Berat') conditionBadge = `<span class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded">${alat.kondisi}</span>`;
+
+                grid.innerHTML += `
+                    <div class="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow transition flex flex-col">
+                        <img src="${alat.foto}" class="w-full h-40 object-cover border-b" onerror="this.src='https://placehold.co/150x150/gray/white?text=Alat'">
+                        <div class="p-4 flex-grow space-y-2 flex flex-col justify-between">
+                            <div class="space-y-1">
+                                <span class="text-[10px] uppercase font-bold tracking-wider text-gray-400">${categoryName}</span>
+                                <h4 class="font-bold text-gray-800 line-clamp-1">${alat.nama_alat}</h4>
+                                <p class="text-xs text-gray-500"><i class="fa-solid fa-location-dot mr-1"></i>${alat.lokasi}</p>
+                            </div>
+                            <div class="pt-2 border-t flex items-center justify-between">
+                                <div class="text-xs">
+                                    <p class="text-gray-400">Tersedia</p>
+                                    <p class="font-bold text-gray-800 text-sm">${alat.stok} unit</p>
+                                </div>
+                                ${conditionBadge}
+                            </div>
+                            ${alat.stok > 0 && alat.kondisi !== 'Rusak Berat' ? `
+                                <button onclick="quickPinjam(${alat.id})" class="w-full mt-2 bg-brand-blue hover:bg-blue-600 text-white font-bold py-1.5 px-3 rounded text-xs transition">
+                                    <i class="fa-solid fa-shopping-cart mr-1"></i> Masukkan Checkout
+                                </button>
+                            ` : `
+                                <button class="w-full mt-2 bg-gray-200 text-gray-400 cursor-not-allowed font-bold py-1.5 px-3 rounded text-xs" disabled>
+                                    Stok Habis / Rusak
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Equipment CRUD Operations
+        function renderAlatTable() {
+            const tbody = document.getElementById('table-alat-body');
+            tbody.innerHTML = '';
+
+            state.equipment.forEach(alat => {
+                const categoryName = state.categories.find(c => c.id == alat.kategori_id)?.nama_kategori || 'Kategori Terhapus';
+                let conditionColor = 'text-green-600';
+                if(alat.kondisi === 'Rusak Ringan') conditionColor = 'text-yellow-600';
+                if(alat.kondisi === 'Rusak Berat') conditionColor = 'text-red-600';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-3 px-4"><img src="${alat.foto}" class="w-12 h-12 object-cover rounded shadow-sm border"></td>
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-gray-800 font-mono text-xs">${alat.kode_alat}</span>
+                            <span class="block text-[10px] text-gray-400">QR: ${alat.qr_code}</span>
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-gray-800">${alat.nama_alat}</td>
+                        <td class="py-3 px-4 text-xs">${categoryName}</td>
+                        <td class="py-3 px-4 font-bold text-gray-800">${alat.stok} Pcs</td>
+                        <td class="py-3 px-4 font-semibold text-xs ${conditionColor}">${alat.kondisi}</td>
+                        <td class="py-3 px-4 text-xs">${alat.lokasi}</td>
+                        <td class="py-3 px-4 text-center">
+                            <div class="inline-flex rounded-md shadow-sm">
+                                <button onclick="openAlatForm(${alat.id})" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold py-1.5 px-3 text-xs rounded-l border border-blue-200"><i class="fa-solid fa-edit"></i></button>
+                                <button onclick="deleteAlat(${alat.id})" class="bg-red-100 hover:bg-red-200 text-red-700 font-semibold py-1.5 px-3 text-xs rounded-r border border-red-200 border-l-0"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openAlatForm(id = null) {
+            // Fill Categories Selector in Form
+            const categorySelect = document.getElementById('alat-category');
+            categorySelect.innerHTML = '<option value="">-- Pilih Kategori --</option>';
+            state.categories.forEach(c => {
+                categorySelect.innerHTML += `<option value="${c.id}">${c.nama_kategori}</option>`;
+            });
+
+            if(id) {
+                const alat = state.equipment.find(a => a.id == id);
+                document.getElementById('alat-modal-title').innerText = "Edit Alat Praktikum";
+                document.getElementById('alat-edit-id').value = id;
+                document.getElementById('alat-code').value = alat.kode_alat;
+                document.getElementById('alat-name').value = alat.nama_alat;
+                document.getElementById('alat-category').value = alat.kategori_id;
+                document.getElementById('alat-stock').value = alat.stok;
+                document.getElementById('alat-condition').value = alat.kondisi;
+                document.getElementById('alat-location').value = alat.lokasi;
+                document.getElementById('alat-photo-url').value = alat.foto;
+            } else {
+                document.getElementById('form-alat').reset();
+                document.getElementById('alat-modal-title').innerText = "Tambah Alat Baru";
+                document.getElementById('alat-edit-id').value = '';
+            }
+            document.getElementById('modal-alat-form').classList.remove('hidden');
+        }
+
+        function closeAlatForm() {
+            document.getElementById('modal-alat-form').classList.add('hidden');
+        }
+
+        function handleAlatSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('alat-edit-id').value;
+            const code = document.getElementById('alat-code').value;
+            const name = document.getElementById('alat-name').value;
+            const category = parseInt(document.getElementById('alat-category').value);
+            const stock = parseInt(document.getElementById('alat-stock').value);
+            const condition = document.getElementById('alat-condition').value;
+            const location = document.getElementById('alat-location').value;
+            const photo = document.getElementById('alat-photo-url').value || `https://placehold.co/150x150/3c8dbc/ffffff?text=${encodeURIComponent(name)}`;
+
+            if(id) {
+                // Update
+                const index = state.equipment.findIndex(a => a.id == id);
+                state.equipment[index] = { ...state.equipment[index], kode_alat: code, nama_alat: name, kategori_id: category, stok: stock, kondisi: condition, lokasi: location, foto: photo };
+                addLog(`Admin memperbarui alat: ${name}`);
+            } else {
+                // Insert New
+                const newId = state.equipment.length > 0 ? Math.max(...state.equipment.map(a => a.id)) + 1 : 1;
+                state.equipment.push({ id: newId, kode_alat: code, nama_alat: name, kategori_id: category, stok: stock, kondisi: condition, lokasi: location, foto: photo, qr_code: code });
+                addLog(`Admin menambahkan alat baru: ${name}`);
+            }
+
+            saveStateToStorage();
+            closeAlatForm();
+            renderAlatTable();
+            Swal.fire({ icon: 'success', title: 'Data Tersimpan', timer: 1000, showConfirmButton: false });
+        }
+
+        function deleteAlat(id) {
+            Swal.fire({
+                title: 'Hapus Alat?',
+                text: "Alat ini akan dihapus secara permanen dari sistem pergudangan lab.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dd4b39',
+                confirmButtonText: 'Ya, Hapus!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const alat = state.equipment.find(a => a.id == id);
+                    state.equipment = state.equipment.filter(a => a.id != id);
+                    addLog(`Admin menghapus alat: ${alat.nama_alat}`);
+                    saveStateToStorage();
+                    renderAlatTable();
+                }
+            });
+        }
+
+        // Category Management
+        function renderKategoriTable() {
+            const tbody = document.getElementById('table-kategori-body');
+            tbody.innerHTML = '';
+            state.categories.forEach((cat, index) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-3 px-4 font-bold text-gray-800">${index+1}</td>
+                        <td class="py-3 px-4 font-semibold text-gray-800">${cat.nama_kategori}</td>
+                        <td class="py-3 px-4 text-center">
+                            <div class="inline-flex rounded-md shadow-sm">
+                                <button onclick="openKategoriForm(${cat.id})" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold py-1 px-3 text-xs rounded-l border border-blue-200"><i class="fa-solid fa-edit"></i></button>
+                                <button onclick="deleteKategori(${cat.id})" class="bg-red-100 hover:bg-red-200 text-red-700 font-semibold py-1 px-3 text-xs rounded-r border border-red-200 border-l-0"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openKategoriForm(id = null) {
+            if(id) {
+                const cat = state.categories.find(c => c.id == id);
+                document.getElementById('kategori-modal-title').innerText = "Edit Kategori";
+                document.getElementById('kategori-edit-id').value = id;
+                document.getElementById('kategori-name').value = cat.nama_kategori;
+            } else {
+                document.getElementById('form-kategori').reset();
+                document.getElementById('kategori-modal-title').innerText = "Tambah Kategori Baru";
+                document.getElementById('kategori-edit-id').value = '';
+            }
+            document.getElementById('modal-kategori-form').classList.remove('hidden');
+        }
+
+        function closeKategoriForm() {
+            document.getElementById('modal-kategori-form').classList.add('hidden');
+        }
+
+        function handleKategoriSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('kategori-edit-id').value;
+            const name = document.getElementById('kategori-name').value;
+
+            if(id) {
+                const index = state.categories.findIndex(c => c.id == id);
+                state.categories[index].nama_kategori = name;
+                addLog(`Admin memperbarui kategori: ${name}`);
+            } else {
+                const newId = state.categories.length > 0 ? Math.max(...state.categories.map(c => c.id)) + 1 : 1;
+                state.categories.push({ id: newId, nama_kategori: name });
+                addLog(`Admin menambahkan kategori: ${name}`);
+            }
+            saveStateToStorage();
+            closeKategoriForm();
+            renderKategoriTable();
+            Swal.fire({ icon: 'success', title: 'Kategori Tersimpan', timer: 1000, showConfirmButton: false });
+        }
+
+        function deleteKategori(id) {
+            Swal.fire({
+                title: 'Hapus Kategori?',
+                text: "Alat-alat dalam kategori ini akan kehilangan relasinya.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dd4b39',
+                confirmButtonText: 'Ya, Hapus!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    state.categories = state.categories.filter(c => c.id != id);
+                    saveStateToStorage();
+                    renderKategoriTable();
+                }
+            });
+        }
+
+        // Student (Mahasiswa) Management
+        function renderMahasiswaTable() {
+            const tbody = document.getElementById('table-mahasiswa-body');
+            tbody.innerHTML = '';
+            state.users.filter(u => u.role === 'mahasiswa').forEach(mhs => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-3 px-4 font-bold text-gray-800">${mhs.nama}</td>
+                        <td class="py-3 px-4 font-mono text-xs text-gray-600">${mhs.nim}</td>
+                        <td class="py-3 px-4 text-xs">${mhs.email}</td>
+                        <td class="py-3 px-4 text-xs font-mono text-gray-400">${mhs.password}</td>
+                        <td class="py-3 px-4 text-center">
+                            <div class="inline-flex rounded-md shadow-sm">
+                                <button onclick="openMahasiswaForm(${mhs.id})" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold py-1 px-3 text-xs rounded-l border border-blue-200"><i class="fa-solid fa-edit"></i></button>
+                                <button onclick="deleteMahasiswa(${mhs.id})" class="bg-red-100 hover:bg-red-200 text-red-700 font-semibold py-1 px-3 text-xs rounded-r border border-red-200 border-l-0"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openMahasiswaForm(id = null) {
+            if(id) {
+                const mhs = state.users.find(u => u.id == id);
+                document.getElementById('mahasiswa-modal-title').innerText = "Edit Data Mahasiswa";
+                document.getElementById('mahasiswa-edit-id').value = id;
+                document.getElementById('mhs-name').value = mhs.nama;
+                document.getElementById('mhs-nim').value = mhs.nim;
+                document.getElementById('mhs-email').value = mhs.email;
+                document.getElementById('mhs-password').value = mhs.password;
+            } else {
+                document.getElementById('form-mahasiswa').reset();
+                document.getElementById('mahasiswa-modal-title').innerText = "Tambah Mahasiswa";
+                document.getElementById('mahasiswa-edit-id').value = '';
+            }
+            document.getElementById('modal-mahasiswa-form').classList.remove('hidden');
+        }
+
+        function closeMahasiswaForm() {
+            document.getElementById('modal-mahasiswa-form').classList.add('hidden');
+        }
+
+        function handleMahasiswaSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('mahasiswa-edit-id').value;
+            const name = document.getElementById('mhs-name').value;
+            const nim = document.getElementById('mhs-nim').value;
+            const email = document.getElementById('mhs-email').value;
+            const pass = document.getElementById('mhs-password').value;
+
+            if(id) {
+                const index = state.users.findIndex(u => u.id == id);
+                state.users[index] = { ...state.users[index], nama: name, nim: nim, email: email, password: pass };
+                addLog(`Admin memperbarui mahasiswa: ${name}`);
+            } else {
+                const newId = state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1;
+                state.users.push({ id: newId, nama: name, nim: nim, email: email, password: pass, role: 'mahasiswa' });
+                addLog(`Admin mendaftarkan mahasiswa baru: ${name}`);
+            }
+            saveStateToStorage();
+            closeMahasiswaForm();
+            renderMahasiswaTable();
+            Swal.fire({ icon: 'success', title: 'Mahasiswa Berhasil Disimpan', timer: 1000, showConfirmButton: false });
+        }
+
+        function deleteMahasiswa(id) {
+            Swal.fire({
+                title: 'Hapus Mahasiswa?',
+                text: "Seluruh riwayat peminjaman mahasiswa ini mungkin akan terpengaruh.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dd4b39',
+                confirmButtonText: 'Ya, Hapus!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    state.users = state.users.filter(u => u.id != id);
+                    saveStateToStorage();
+                    renderMahasiswaTable();
+                }
+            });
+        }
+
+        // Borrow Flow (Mahasiswa Form)
+        function openBorrowModal() {
+            // Set default dates
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 3);
+
+            document.getElementById('borrow-start-date').value = today.toISOString().split('T')[0];
+            document.getElementById('borrow-end-date').value = tomorrow.toISOString().split('T')[0];
+
+            // Rebuild items wrapper
+            const wrapper = document.getElementById('borrow-items-wrapper');
+            wrapper.innerHTML = '';
+            addBorrowRow();
+
+            document.getElementById('modal-borrow').classList.remove('hidden');
+        }
+
+        function closeBorrowModal() {
+            document.getElementById('modal-borrow').classList.add('hidden');
+        }
+
+        function addBorrowRow() {
+            const wrapper = document.getElementById('borrow-items-wrapper');
+            const rowId = Date.now() + Math.random().toString(36).substr(2, 5);
+            
+            // Build equipment options
+            let options = '<option value="">-- Pilih Alat --</option>';
+            state.equipment.filter(a => a.stok > 0 && a.kondisi !== 'Rusak Berat').forEach(alat => {
+                options += `<option value="${alat.id}" data-stok="${alat.stok}">${alat.nama_alat} (Tersedia: ${alat.stok})</option>`;
+            });
+
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 borrow-item-row';
+            row.id = rowId;
+            row.innerHTML = `
+                <select class="flex-grow border rounded p-2 text-sm borrow-item-select focus:outline-none" onchange="updateMaxStock(this)" required>
+                    ${options}
+                </select>
+                <input type="number" class="w-20 border rounded p-2 text-sm borrow-item-qty focus:outline-none" placeholder="Qty" min="1" value="1" required>
+                <button type="button" onclick="removeBorrowRow(this)" class="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded"><i class="fa-solid fa-trash"></i></button>
+            `;
+            wrapper.appendChild(row);
+        }
+
+        function removeBorrowRow(btn) {
+            const wrapper = document.getElementById('borrow-items-wrapper');
+            if(wrapper.children.length > 1) {
+                btn.closest('.borrow-item-row').remove();
+            } else {
+                Swal.fire({ icon: 'warning', title: 'Minimal memilih 1 alat praktikum.' });
+            }
+        }
+
+        function updateMaxStock(select) {
+            const option = select.options[select.selectedIndex];
+            const maxStok = option.getAttribute('data-stok');
+            const qtyInput = select.closest('.borrow-item-row').querySelector('.borrow-item-qty');
+            if(maxStok) {
+                qtyInput.max = maxStok;
+                qtyInput.value = 1;
+            }
+        }
+
+        function quickPinjam(alatId) {
+            openBorrowModal();
+            const firstSelect = document.querySelector('.borrow-item-select');
+            if(firstSelect) {
+                firstSelect.value = alatId;
+                updateMaxStock(firstSelect);
+            }
+        }
+
+        function handleBorrowSubmit(e) {
+            e.preventDefault();
+            const start = document.getElementById('borrow-start-date').value;
+            const end = document.getElementById('borrow-end-date').value;
+
+            const detail = [];
+            let valid = true;
+
+            document.querySelectorAll('.borrow-item-row').forEach(row => {
+                const alatId = parseInt(row.querySelector('.borrow-item-select').value);
+                const qty = parseInt(row.querySelector('.borrow-item-qty').value);
+                
+                const originalAlat = state.equipment.find(a => a.id == alatId);
+                if(originalAlat && qty > originalAlat.stok) {
+                    Swal.fire({ icon: 'error', title: 'Stok Kurang', text: `Jumlah ${originalAlat.nama_alat} yang diminta melebihi stok tersedia!` });
+                    valid = false;
+                    return;
+                }
+
+                if(alatId) {
+                    detail.push({ alat_id: alatId, jumlah: qty });
+                }
+            });
+
+            if(!valid) return;
+
+            const newId = state.rentals.length > 0 ? Math.max(...state.rentals.map(r => r.id)) + 1 : 1001;
+            const newRental = {
+                id: newId,
+                user_id: state.currentUser.id,
+                tanggal_pinjam: start,
+                tanggal_kembali: end,
+                status: 'Menunggu Persetujuan',
+                detail: detail
+            };
+
+            state.rentals.push(newRental);
+            addLog(`${state.currentUser.nama} mengajukan peminjaman TRX-#${newId}`);
+            saveStateToStorage();
+            closeBorrowModal();
+            switchView('dashboard');
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Pengajuan Dikirim',
+                text: 'Menunggu persetujuan dari Admin atau Laboran Lab.',
+                confirmButtonColor: '#3c8dbc'
+            });
+        }
+
+        // Rental (Peminjaman) Approval Workflow
+        function renderPeminjamanTable() {
+            const filterVal = document.getElementById('filter-peminjaman').value;
+            const tbody = document.getElementById('table-peminjaman-body');
+            tbody.innerHTML = '';
+
+            let querySet = state.rentals;
+            // If student, only show owned
+            if(state.currentUser.role === 'mahasiswa') {
+                querySet = querySet.filter(r => r.user_id === state.currentUser.id);
+            }
+
+            if(filterVal) {
+                querySet = querySet.filter(r => r.status === filterVal);
+            }
+
+            querySet.forEach(pinjam => {
+                const user = state.users.find(u => u.id == pinjam.user_id);
+                const userName = user ? user.nama : 'Unknown';
+                const userNim = user && user.nim ? user.nim : 'N/A';
+
+                // Format tools list cell
+                let listHtml = '<ul class="list-disc pl-4 space-y-0.5">';
+                pinjam.detail.forEach(det => {
+                    const alat = state.equipment.find(a => a.id == det.alat_id);
+                    const name = alat ? alat.nama_alat : 'Alat Terhapus';
+                    listHtml += `<li>${name} <span class="font-bold">(${det.jumlah} Pcs)</span></li>`;
+                });
+                listHtml += '</ul>';
+
+                // Status coloring
+                let statusBadge = '';
+                if(pinjam.status === 'Menunggu Persetujuan') statusBadge = `<span class="bg-yellow-100 text-yellow-800 border border-yellow-300 text-xs px-2.5 py-1 rounded-full font-semibold"><i class="fa-solid fa-clock mr-1"></i>Menunggu</span>`;
+                if(pinjam.status === 'Disetujui') statusBadge = `<span class="bg-blue-100 text-blue-800 border border-blue-300 text-xs px-2.5 py-1 rounded-full font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Disetujui</span>`;
+                if(pinjam.status === 'Dipinjam') statusBadge = `<span class="bg-green-100 text-green-800 border border-green-300 text-xs px-2.5 py-1 rounded-full font-semibold"><i class="fa-solid fa-hands-holding mr-1"></i>Dipinjam</span>`;
+                if(pinjam.status === 'Selesai') statusBadge = `<span class="bg-gray-100 text-gray-800 border border-gray-300 text-xs px-2.5 py-1 rounded-full font-semibold"><i class="fa-solid fa-box-open mr-1"></i>Selesai</span>`;
+                if(pinjam.status === 'Ditolak') statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 text-xs px-2.5 py-1 rounded-full font-semibold"><i class="fa-solid fa-times-circle mr-1"></i>Ditolak</span>`;
+
+                // Action panel based on role
+                let actionHtml = `<span class="text-xs text-gray-400">Tidak ada aksi</span>`;
+                if(state.currentUser.role !== 'mahasiswa') {
+                    if(pinjam.status === 'Menunggu Persetujuan') {
+                        actionHtml = `
+                            <div class="flex gap-1 justify-center">
+                                <button onclick="verifyRentalStatus(${pinjam.id}, 'Disetujui')" class="bg-green-500 hover:bg-green-600 text-white font-bold px-2 py-1 rounded text-xs">Setujui</button>
+                                <button onclick="verifyRentalStatus(${pinjam.id}, 'Ditolak')" class="bg-red-500 hover:bg-red-600 text-white font-bold px-2 py-1 rounded text-xs">Tolak</button>
+                            </div>
+                        `;
+                    } else if(pinjam.status === 'Disetujui') {
+                        actionHtml = `
+                            <button onclick="verifyRentalStatus(${pinjam.id}, 'Dipinjam')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold px-2 py-1 rounded text-xs">
+                                <i class="fa-solid fa-arrow-right mr-1"></i> Serahkan Alat
+                            </button>
+                        `;
+                    }
+                } else if(pinjam.status === 'Dipinjam') {
+                    // Students can trigger simulation of pengembalian
+                    actionHtml = `
+                        <button onclick="switchView('pengembalian'); document.getElementById('return-trx-id').value=${pinjam.id};" class="w-full bg-brand-success hover:bg-green-600 text-white font-bold px-2 py-1 rounded text-xs">
+                            Ajukan Kembali
+                        </button>
+                    `;
+                }
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-3 px-4 font-mono font-bold text-gray-800">TRX-#${pinjam.id}</td>
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-gray-800">${userName}</span>
+                            <span class="block text-[10px] text-gray-400 font-mono">${userNim}</span>
+                        </td>
+                        <td class="py-3 px-4">${listHtml}</td>
+                        <td class="py-3 px-4 text-xs">
+                            <p class="font-semibold text-green-700">Pinjam: ${pinjam.tanggal_pinjam}</p>
+                            <p class="font-semibold text-red-700">Kembali: ${pinjam.tanggal_kembali}</p>
+                        </td>
+                        <td class="py-3 px-4">${statusBadge}</td>
+                        <td class="py-3 px-4 text-center">${actionHtml}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function verifyRentalStatus(id, newStatus) {
+            const index = state.rentals.findIndex(r => r.id == id);
+            const rental = state.rentals[index];
+
+            if(newStatus === 'Disetujui') {
+                // Check if stock is sufficient, then deduct
+                let possible = true;
+                rental.detail.forEach(d => {
+                    const alat = state.equipment.find(a => a.id == d.alat_id);
+                    if(alat.stok < d.jumlah) {
+                        possible = false;
+                        Swal.fire({ icon: 'error', title: 'Stok Tidak Cukup', text: `Stok ${alat.nama_alat} tidak cukup untuk disetujui.` });
+                    }
+                });
+
+                if(!possible) return;
+
+                // Decrement stock
+                rental.detail.forEach(d => {
+                    const alatIndex = state.equipment.findIndex(a => a.id == d.alat_id);
+                    state.equipment[alatIndex].stok -= d.jumlah;
+                });
+            }
+
+            state.rentals[index].status = newStatus;
+            addLog(`Sistem merubah status TRX-#${id} menjadi ${newStatus}`);
+            saveStateToStorage();
+            renderPeminjamanTable();
+            Swal.fire({ icon: 'success', title: `Transaksi ${newStatus}`, timer: 1000, showConfirmButton: false });
+        }
+
+        // Return (Pengembalian) System
+        function renderPengembalianSection() {
+            // Fill Trx selector with active borrowings
+            const select = document.getElementById('return-trx-id');
+            select.innerHTML = '<option value="">-- Pilih Transaksi Aktif --</option>';
+
+            let activeRentals = state.rentals.filter(r => r.status === 'Dipinjam' || r.status === 'Disetujui');
+            // If student, restrict
+            if(state.currentUser.role === 'mahasiswa') {
+                activeRentals = activeRentals.filter(r => r.user_id === state.currentUser.id);
+            }
+
+            activeRentals.forEach(r => {
+                const user = state.users.find(u => u.id == r.user_id);
+                select.innerHTML += `<option value="${r.id}">TRX-#${r.id} - ${user ? user.nama : 'Unknown'}</option>`;
+            });
+
+            // Set default return date (today)
+            document.getElementById('return-date').value = new Date().toISOString().split('T')[0];
+
+            // Render returns history table
+            const tbody = document.getElementById('table-returns-body');
+            tbody.innerHTML = '';
+
+            state.returns.forEach((item, index) => {
+                const rental = state.rentals.find(r => r.id == item.peminjaman_id);
+                const user = rental ? state.users.find(u => u.id == rental.user_id) : null;
+
+                tbody.innerHTML += `
+                    <tr class="text-xs">
+                        <td class="py-3 px-4 font-bold text-gray-700">${index+1}</td>
+                        <td class="py-3 px-4 font-mono font-bold text-brand-blue">TRX-#${item.peminjaman_id}</td>
+                        <td class="py-3 px-4">${item.tanggal_pengembalian}</td>
+                        <td class="py-3 px-4 font-semibold">${item.kondisi_alat}</td>
+                        <td class="py-3 px-4 font-bold text-red-600">Rp ${item.denda.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 italic text-gray-500">${item.keterangan || '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function handlePengembalian(e) {
+            e.preventDefault();
+            const trxId = parseInt(document.getElementById('return-trx-id').value);
+            const condition = document.getElementById('return-condition').value;
+            const rDate = document.getElementById('return-date').value;
+            const denda = parseFloat(document.getElementById('return-denda').value) || 0;
+            const note = document.getElementById('return-note').value;
+
+            if(!trxId) {
+                Swal.fire({ icon: 'warning', title: 'Pilih Transaksi Terlebih Dahulu!' });
+                return;
+            }
+
+            const rentalIndex = state.rentals.findIndex(r => r.id == trxId);
+            const rental = state.rentals[rentalIndex];
+
+            // Update tools stock (return item logic)
+            rental.detail.forEach(d => {
+                const alatIndex = state.equipment.findIndex(a => a.id == d.alat_id);
+                state.equipment[alatIndex].stok += d.jumlah;
+
+                // Adjust physical condition if reported damaged
+                if(condition === 'Rusak') {
+                    state.equipment[alatIndex].kondisi = 'Rusak Ringan';
+                } else if(condition === 'Hilang') {
+                    state.equipment[alatIndex].stok -= d.jumlah; // keep deducted
+                    state.equipment[alatIndex].kondisi = 'Rusak Berat';
+                }
+            });
+
+            // Set rental status to Selesai
+            state.rentals[rentalIndex].status = 'Selesai';
+
+            // Add Return record
+            const newReturnId = state.returns.length > 0 ? Math.max(...state.returns.map(r => r.id)) + 1 : 2001;
+            state.returns.push({
+                id: newReturnId,
+                peminjaman_id: trxId,
+                tanggal_pengembalian: rDate,
+                kondisi_alat: condition,
+                keterangan: note,
+                denda: denda
+            });
+
+            addLog(`Siti (Laboran) memverifikasi pengembalian TRX-#${trxId} (Kondisi: ${condition})`);
+            saveStateToStorage();
+            
+            document.getElementById('form-pengembalian').reset();
+            renderPengembalianSection();
+            Swal.fire({ icon: 'success', title: 'Verifikasi Pengembalian Selesai', text: 'Stok alat otomatis terupdate!', confirmButtonColor: '#00a65a' });
+        }
+
+        // Simulated QR Code Scanning
+        function openQRScanSim() {
+            const select = document.getElementById('simulated-qr-input');
+            select.innerHTML = '';
+            state.equipment.forEach(alat => {
+                select.innerHTML += `<option value="${alat.qr_code}">${alat.nama_alat} (${alat.qr_code})</option>`;
+            });
+            document.getElementById('modal-qr-simulator').classList.remove('hidden');
+        }
+
+        function closeQRScanSim() {
+            document.getElementById('modal-qr-simulator').classList.add('hidden');
+        }
+
+        function submitQRScanSim() {
+            const qrVal = document.getElementById('simulated-qr-input').value;
+            closeQRScanSim();
+
+            const matchedAlat = state.equipment.find(a => a.qr_code === qrVal);
+            if(matchedAlat) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'QR Code Dikenali!',
+                    html: `<b>Alat:</b> ${matchedAlat.nama_alat}<br><b>Stok:</b> ${matchedAlat.stok} unit<br><b>Lokasi:</b> ${matchedAlat.lokasi}`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Pinjam Alat Ini',
+                    cancelButtonText: 'Tutup'
+                }).then((res) => {
+                    if(res.isConfirmed) {
+                        if(state.currentUser.role === 'mahasiswa') {
+                            quickPinjam(matchedAlat.id);
+                        } else {
+                            Swal.fire({ icon: 'info', text: 'Login sebagai Mahasiswa untuk mengajukan checkout peminjaman.' });
+                        }
+                    }
+                });
+            }
+        }
+
+        // Reports View & Filters
+        function renderReports() {
+            const startStr = document.getElementById('report-start-date').value;
+            const endStr = document.getElementById('report-end-date').value;
+
+            const start = new Date(startStr);
+            const end = new Date(endStr);
+
+            // Filter peminjaman in range
+            const filteredRentals = state.rentals.filter(r => {
+                const date = new Date(r.tanggal_pinjam);
+                return date >= start && date <= end;
+            });
+
+            // Filter returns in range
+            const filteredReturns = state.returns.filter(ret => {
+                const date = new Date(ret.tanggal_pengembalian);
+                return date >= start && date <= end;
+            });
+
+            // Render tables inside Reports view
+            const borrowTbody = document.getElementById('report-peminjaman-body');
+            borrowTbody.innerHTML = '';
+
+            filteredRentals.forEach(r => {
+                const user = state.users.find(u => u.id == r.user_id);
+                let toolsSummary = r.detail.map(d => {
+                    const alat = state.equipment.find(a => a.id == d.alat_id);
+                    return `${alat ? alat.nama_alat : 'Alat'} (${d.jumlah})`;
+                }).join(', ');
+
+                borrowTbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="py-2 px-3 font-mono font-bold text-gray-700">TRX-#${r.id}</td>
+                        <td class="py-2 px-3 font-semibold">${user ? user.nama : 'Unknown'}</td>
+                        <td class="py-2 px-3 max-w-xs truncate">${toolsSummary}</td>
+                        <td class="py-2 px-3">${r.tanggal_pinjam}</td>
+                    </tr>
+                `;
+            });
+
+            const returnTbody = document.getElementById('report-pengembalian-body');
+            returnTbody.innerHTML = '';
+
+            filteredReturns.forEach(ret => {
+                returnTbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="py-2 px-3 font-mono font-bold text-gray-700">TRX-#${ret.peminjaman_id}</td>
+                        <td class="py-2 px-3">${ret.tanggal_pengembalian}</td>
+                        <td class="py-2 px-3 font-bold">${ret.kondisi_alat}</td>
+                        <td class="py-2 px-3 text-red-600">Rp ${ret.denda.toLocaleString('id-ID')}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function exportReport(format) {
+            const start = document.getElementById('report-start-date').value;
+            const end = document.getElementById('report-end-date').value;
+            
+            Swal.fire({
+                title: `Ekspor Laporan ${format.toUpperCase()}?`,
+                text: `Sistem mengekstrak dokumen terfilter untuk rentang ${start} s/d ${end}`,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#00a65a',
+                confirmButtonText: 'Unduh Berkas'
+            }).then((res) => {
+                if(res.isConfirmed) {
+                    if(format === 'pdf') {
+                        // Print view simulation
+                        window.print();
+                    } else {
+                        // Generate simple CSV
+                        let csvContent = "data:text/csv;charset=utf-8,";
+                        csvContent += "ID TRX,Tanggal,Aktivitas,Denda\n";
+                        state.returns.forEach(r => {
+                            csvContent += `${r.peminjaman_id},${r.tanggal_pengembalian},Pengembalian Kondisi ${r.kondisi_alat},${r.denda}\n`;
+                        });
+                        const encodedUri = encodeURI(csvContent);
+                        const link = document.createElement("a");
+                        link.setAttribute("href", encodedUri);
+                        link.setAttribute("download", `Laporan_SIPEM_${start}_to_${end}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                }
+            });
+        }
+
+        // Activity Logs
+        function renderLogs() {
+            const container = document.getElementById('log-list-container');
+            container.innerHTML = '';
+            state.logs.forEach(log => {
+                container.innerHTML += `
+                    <div class="p-3 border-l-4 border-brand-blue bg-gray-50 rounded shadow-sm text-sm flex items-start justify-between">
+                        <div>
+                            <p class="text-gray-700 font-medium">${log.message}</p>
+                            <span class="text-[10px] text-gray-400 font-semibold uppercase">${log.time}</span>
+                        </div>
+                        <i class="fa-solid fa-history opacity-30 text-lg"></i>
+                    </div>
+                `;
+            });
+        }
+
+        // Global Layout helper
+        function updateAllLayouts() {
+            updatePendingCountBadge();
+        }
+    </script>
+</body>
+</html>

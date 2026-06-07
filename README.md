@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Sistem Peminjaman Barang Bengkel
 
 Website untuk mengelola peminjaman barang/peralatan bengkel seperti kunci, obeng, bor, tang, mesin, alat ukur, dan perlengkapan praktik. Aplikasi memakai React Vite, Tailwind CSS, Supabase Auth/Database/Storage, dan siap dideploy ke Vercel.
@@ -142,3 +143,7 @@ Akun demo tidak dibuat otomatis karena Supabase Auth menyimpan password di siste
 
 - Admin: buat `admin@example.com`, lalu update role menjadi `admin`.
 - User: register langsung dari halaman Register.
+=======
+# Website-pinjamialat
+web
+>>>>>>> b03c6b883dc27931c229468106c8d397cc40a957
