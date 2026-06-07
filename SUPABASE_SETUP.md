@@ -137,6 +137,11 @@ Jika koneksi Supabase berhasil:
 - Admin bisa menambah barang.
 - User bisa mengajukan peminjaman.
 
+Route login aplikasi:
+
+- Admin: `/admin/login`
+- User: `/login`
+
 ## 8. Test Alur Aplikasi
 
 1. Register akun user biasa.
