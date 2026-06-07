@@ -139,7 +139,10 @@ security definer
 set search_path = public
 as $$
 begin
-  if old.role is distinct from new.role and not public.is_admin() then
+  if old.role is distinct from new.role
+    and current_user not in ('postgres', 'supabase_admin')
+    and not public.is_admin()
+  then
     raise exception 'Hanya admin yang boleh mengubah role user.';
   end if;
 

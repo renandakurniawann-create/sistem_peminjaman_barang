@@ -50,6 +50,18 @@ Jalankan lokal:
 npm run dev
 ```
 
+Untuk testing admin dan user bersamaan, jalankan dua terminal:
+
+```bash
+npm run dev:admin
+```
+
+```bash
+npm run dev:user
+```
+
+Login admin di `http://127.0.0.1:5173` dan login user di `http://127.0.0.1:5174`. Karena port berbeda, session Supabase terpisah dan kamu tidak perlu logout-login terus.
+
 Build production:
 
 ```bash
@@ -71,6 +83,18 @@ where email = 'admin@example.com';
 ```
 
 6. Storage bucket `item-images` dibuat otomatis oleh schema. Jika ada error permission saat menjalankan SQL, buat bucket `item-images` manual dari Supabase Storage, set public, lalu jalankan ulang bagian policy storage.
+
+## Data Dummy
+
+File dummy data tersedia di `supabase/seed.sql`.
+
+Sebelum menjalankan seed, buat user berikut di Supabase Authentication > Users:
+
+- `admin.bengkel@example.com`
+- `siswa.praktik@example.com`
+- `siswa.las@example.com`
+
+Setelah itu jalankan isi `supabase/seed.sql` di Supabase SQL Editor. Seed akan mengisi `profiles`, `categories`, `items`, dan `borrowings`.
 
 ## Alur Database
 
