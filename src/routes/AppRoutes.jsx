@@ -23,7 +23,8 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route element={<AuthLayout />}>
-        <Route element={<Login />} path="/login" />
+        <Route element={<Login mode="user" />} path="/login" />
+        <Route element={<Login mode="admin" />} path="/admin/login" />
         <Route element={<Register />} path="/register" />
       </Route>
 
@@ -37,7 +38,7 @@ export default function AppRoutes() {
         </Route>
       </Route>
 
-      <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+      <Route element={<ProtectedRoute allowedRoles={["admin"]} loginPath="/admin/login" />}>
         <Route element={<AdminLayout />} path="/admin">
           <Route element={<AdminDashboard />} index />
           <Route element={<AdminItems />} path="items" />

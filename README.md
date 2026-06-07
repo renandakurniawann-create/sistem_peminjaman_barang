@@ -60,7 +60,12 @@ npm run dev:admin
 npm run dev:user
 ```
 
-Login admin di `http://127.0.0.1:5173` dan login user di `http://127.0.0.1:5174`. Karena port berbeda, session Supabase terpisah dan kamu tidak perlu logout-login terus.
+Login admin di `http://127.0.0.1:5173/admin/login` dan login user di `http://127.0.0.1:5174/login`. Karena port berbeda, session Supabase terpisah dan kamu tidak perlu logout-login terus.
+
+Route login:
+
+- Admin: `/admin/login`
+- User: `/login`
 
 Build production:
 
